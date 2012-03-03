@@ -1,0 +1,7 @@
+
+@interface TagTreeController : NSObject
+{
+
+}
+
+@end
