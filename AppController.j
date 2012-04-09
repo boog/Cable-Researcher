@@ -92,7 +92,7 @@
 	interactiveUser = NO;
 	if (interactive) interactiveUser = YES;
 	// Search button pressed
-	searchParams.text = [searchText stringValue];
+	searchParams.text = [searchText stringValue].toString();
 	searchParams.tags = [treeController getCheckedTags];
 	searchParams.or = [treeController getOrTags];
 	
@@ -218,7 +218,7 @@
 	if ([arrayController selectedObjects]) {
 		var selectedItem = [arrayController selectedObjects][0];
 		searchParams.refid = [selectedItem objectForKey:"refid"];
-		[detailService post:itemPath withData:{refid: searchParams.refid}];
+		if (searchParams.refid) [detailService post:itemPath withData:{refid: searchParams.refid}];
 	}
 }
 
@@ -248,7 +248,6 @@
 	[[tableView tableColumnWithIdentifier:"Date"] bind:@"value" toObject:arrayController withKeyPath:@"arrangedObjects.date" options:nil]; 
 	[[tableView tableColumnWithIdentifier:"Classification"] bind:@"value" toObject:arrayController withKeyPath:@"arrangedObjects.classification" options:nil]; 
 	[tableView sizeLastColumnToFit];
-	if (interactiveUser) [tableView setDelegate:self];
 	// Select none, or parameterized index
 	var selectedRow = -1;
 	if (searchParams.refid) {
@@ -261,13 +260,18 @@
 	}
 	[tableView selectRowIndexes:[CPIndexSet indexSetWithIndex:selectedRow] byExtendingSelection:NO];
 	[tableView setDelegate:self];
+	if (interactiveUser) [self tableViewSelectionDidChange:nil];
 }
 
 - (void)setContent:(id)item
 {
 	// Show selected item content
 	[contentText setStringValue:item.content + "\n\n"]
+	//var attr = [[CPDictionary dictionary] setObject:[CPColor purpleColor] forKey:"CPBackgroundColorAttributeName"];
+	//[contentText setObjectValue:[[CPAttributedString alloc] initWithString:item.content attributes:attr]];
 	[contentText sizeToFit];
+	[contentView scrollToBeginningOfDocument:self];
+	[contentView needsDisplay];
 
 	// Set selected item tags
 	itemTags = item.tags;
@@ -295,7 +299,7 @@
 - (void)serviceDelegate:(id)del failedWithError:(id)error
 {
 	// Handle errors from the web service
-	[[CPAlert alertWithError:"There was an error communicating with the server."] beginSheetModalForWindow:theWindow];
+	//[[CPAlert alertWithError:"There was an error communicating with the server."] beginSheetModalForWindow:theWindow];
 	[searchButton setEnabled:YES];
 }
 

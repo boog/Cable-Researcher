@@ -6,9 +6,14 @@
 	id fn;
 }
 
--(void)mouseDown:(NSEvent*) theEvent
+-(void)mouseDown:(CPEvent)theEvent
 {
 	if (fn) fn();
+}
+
+-(void)mouseDragged:(CPEvent)event
+{
+	//CPBackgroundColorAttributeName
 }
 
 - (void)setClickFn:(id)callback

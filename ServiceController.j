@@ -46,10 +46,16 @@
 {
 	connection = undefined;
 	if ([delegate respondsToSelector:@selector(serviceDelegate:gotJSONObject:)]) {
+		var obj;
 		try {
-			[delegate serviceDelegate:self gotJSONObject:JSON.parse(data)];
+			obj = JSON.parse(data);
 		}
 		catch (e) {
+		}
+		if (obj) {
+			[delegate serviceDelegate:self gotJSONObject:obj];
+		}
+		else {
 			if ([delegate respondsToSelector:@selector(serviceDelegate:failedWithError:)]) {
 				[delegate serviceDelegate:self failedWithError:"Unexpected response from server"];
 			}
