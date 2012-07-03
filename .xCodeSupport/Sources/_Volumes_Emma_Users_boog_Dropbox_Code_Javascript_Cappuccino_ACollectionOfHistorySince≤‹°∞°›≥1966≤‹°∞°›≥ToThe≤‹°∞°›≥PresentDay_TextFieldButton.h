@@ -1,0 +1,7 @@
+
+@interface TextFieldButton : NSTextField
+{
+
+}
+
+@end

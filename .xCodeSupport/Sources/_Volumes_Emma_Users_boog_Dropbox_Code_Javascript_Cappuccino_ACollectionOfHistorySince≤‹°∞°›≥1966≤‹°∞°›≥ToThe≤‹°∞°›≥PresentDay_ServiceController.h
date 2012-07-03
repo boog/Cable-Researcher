@@ -1,0 +1,7 @@
+
+@interface ServiceController : NSObject
+{
+
+}
+
+@end

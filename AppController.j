@@ -15,8 +15,11 @@
 	@outlet CPView rightPane;
 	@outlet CPPopover splashPopover;
 	@outlet CPButton searchButton;
+	@outlet CPButton resetButton;
 	@outlet CPScrollView contentView;
 	@outlet CPSegmentedControl tagMode;
+	@outlet CPTextField dateText;
+	@outlet CPScrollView scrollView;
 	CPPopover metaPopover;
 	CPTextField contentText;
 	TagTreeController treeController; // Controls the tag browser
@@ -28,6 +31,56 @@
 	var searchParams;
 	var timer; // Query-UI delay timer
 }
+
+////	Application delegate methods
+
+- (void)applicationDidFinishLaunching:(CPNotification)aNotification
+{
+	interactiveUser = NO;
+	searchParams = {};
+
+	[self loadHashBang];
+
+	if (getCookie(c_name) != c_value) {
+		// Show splash popover
+		[splashPopover setContentViewController:[[SplashController alloc] initWithCibName:"Splash" bundle:nil]];
+		var andOrColumn= [outlineView tableColumnWithIdentifier:"and"];
+		[splashPopover showRelativeToRect:nil ofView:[outlineView headerView] preferredEdge:CPMaxXEdge];
+		// Expand first category node of tags
+		[outlineView expandItem:"Subject"];
+	}
+}
+
+- (void)awakeFromCib
+{
+    // In this case, we want the window from Cib to become our full browser window
+    [theWindow setFullPlatformWindow:YES];
+
+	metaPopover = [[CPPopover alloc] init];
+	// Show splash popover
+	[metaPopover setContentViewController:[[MetaController alloc] initWithCibName:"Meta" bundle:nil]];
+	[splashPopover setContentViewController:[[SplashController alloc] initWithCibName:"Splash" bundle:nil]];
+
+	treeController = [[TagTreeController alloc] initWithOutlineView:outlineView];
+	[treeController setDelegate:self];
+
+	[rightPane setBackgroundColor:[CPColor colorWithHexString:"DDDDDD"]];
+	
+	detailService = [[ServiceController alloc] initWithEndPoint:serverUrl];
+	[detailService setDelegate:self];
+	searchService = [[ServiceController alloc] initWithEndPoint:serverUrl];
+	[searchService setDelegate:self];
+	
+	contentText = [CPTextField labelWithTitle:""];
+	[contentText setFrameOrigin:{x:10, y:10}]; // content margin
+	[contentText setSelectable:YES];
+	[contentView setDocumentView:contentText];
+	
+	[scrollView setDelegate:self];
+	
+	[dateText setObjectValue:DEFAULT_DATE];
+}
+
 
 ////	Interface actions
 
@@ -77,6 +130,7 @@
 	[searchText setStringValue:""];
 	[tagFilter setStringValue:""];
 	[treeController reset];
+	[self awakeFromCib];
 	[self setHashBang];
 }
 
@@ -91,16 +145,41 @@
 {
 	interactiveUser = NO;
 	if (interactive) interactiveUser = YES;
+	
+	// Validate date time
+	var date = [self validateDate:[dateText objectValue]];
+	if (!date)
+	{
+		return;
+	}
+	
+	
 	// Search button pressed
 	searchParams.text = [searchText stringValue].toString();
 	searchParams.tags = [treeController getCheckedTags];
 	searchParams.or = [treeController getOrTags];
+	searchParams.date = date;
+	searchParams.page = undefined;
 	
 	// Serialize the searchParms in to the hash bang fragment
 	if (interactiveUser === YES) [self setHashBang];
 	
 	// Generate JSON request to populate search results dataSource
 	[searchService post:queryPath withData:searchParams];
+}
+
+- (void)validateDate:(CPString)strDate
+{
+	var date = null;
+	try
+	{
+		date = [[CPDate alloc] initWithString:strDate + " 12:00:00 -0700"];
+	}
+	catch (e)
+	{
+		[[CPAlert alertWithError:"Beginning near: must be YYYY-MM-DD format."] beginSheetModalForWindow:theWindow];
+	}
+	return date;
 }
 
 - (void)setHashBang
@@ -117,6 +196,7 @@
 		if (tags.length > 0) params.push("t=" + tags);
 		if (ors.length > 0) params.push("o=" + ors);
 		if (searchParams.refid && ref.length > 0) params.push("i=" + ref);
+		if (searchParams.date) params.push("d=" + [searchParams.date description].split(" ")[0]);
 		hashBang = "#!/" + params.join('/');
 	}
 
@@ -141,8 +221,10 @@
 				tags: params['t'] ? params['t'].split(',') : [],
 				or: params['o'] ? params['o'].split(',') : [],
 				refid: params['i'] ? params['i'] : "",
+				date: params['d'] ? [self validateDate:params['d']] : undefined,
 			}
 			[treeController loadAllTags];
+			[dateText setObjectValue:params['d']];
 			[searchText setStringValue:searchParams.text];
 			[treeController setCheckedTags:searchParams.tags];
 			[treeController setOrTags:searchParams.or];
@@ -162,52 +244,7 @@
 	timer = setInterval(function() { 
 		clearInterval(timer);
 		[self search:nil]; 
-	}, 700);
-}
-
-////	Application delegate methods
-
-- (void)applicationDidFinishLaunching:(CPNotification)aNotification
-{
-	interactiveUser = NO;
-	searchParams = {};
-
-	[self loadHashBang];
-
-	if (getCookie(c_name) != c_value) {
-		// Show splash popover
-		[splashPopover setContentViewController:[[SplashController alloc] initWithCibName:"Splash" bundle:nil]];
-		var andOrColumn= [outlineView tableColumnWithIdentifier:"and"];
-		[splashPopover showRelativeToRect:nil ofView:[outlineView headerView] preferredEdge:CPMaxXEdge];
-		// Expand first category node of tags
-		[outlineView expandItem:"Subject"];
-	}
-}
-
-- (void)awakeFromCib
-{
-    // In this case, we want the window from Cib to become our full browser window
-    [theWindow setFullPlatformWindow:YES];
-
-	metaPopover = [[CPPopover alloc] init];
-	// Show splash popover
-	[metaPopover setContentViewController:[[MetaController alloc] initWithCibName:"Meta" bundle:nil]];
-	[splashPopover setContentViewController:[[SplashController alloc] initWithCibName:"Splash" bundle:nil]];
-
-	treeController = [[TagTreeController alloc] initWithOutlineView:outlineView];
-	[treeController setDelegate:self];
-
-	[rightPane setBackgroundColor:[CPColor colorWithHexString:"DDDDDD"]];
-	
-	detailService = [[ServiceController alloc] initWithEndPoint:serverUrl];
-	[detailService setDelegate:self];
-	searchService = [[ServiceController alloc] initWithEndPoint:serverUrl];
-	[searchService setDelegate:self];
-	
-	contentText = [CPTextField labelWithTitle:""];
-	[contentText setFrameOrigin:{x:10, y:10}]; // content margin
-	[contentText setSelectable:YES];
-	[contentView setDocumentView:contentText];
+	}, 1000);
 }
 
 ////	Table View methods
@@ -224,10 +261,17 @@
 
 - (void)setSearchResults:(CPArray)dataSource
 {
+	var existingItems = [];
+	// Append items if paging
+	if (arrayController && searchParams.page) existingItems = [arrayController contentArray];
 	arrayController = [[CPArrayController alloc] init];
+	[arrayController addObjects:existingItems];
+	[tableView setDelegate:nil]; // Don't listen to any event during data binding (i.e. selected row change)
+		
 	if (dataSource && dataSource.length > 0) {
 		// Show count in header name
-		[[[tableView tableColumnWithIdentifier:"Subject"] headerView] setStringValue:"Subjects (" + dataSource.length + ")"];
+		var count = searchParams.page ? (searchParams.page + 1) * dataSource.length : dataSource.length;
+		[[[tableView tableColumnWithIdentifier:"Subject"] headerView] setStringValue:"Subjects (" + count + ")"];
 		for (var i=0; i<dataSource.length; i++)
 		{
 			[arrayController addObject:[CPDictionary dictionaryWithJSObject:dataSource[i]]];
@@ -242,7 +286,6 @@
 	}
 	
 	// Update data binding, even if empty
-	[tableView setDelegate:nil]; // Don't listen to any event during data binding (i.e. selected row change)
 	[[tableView tableColumnWithIdentifier:"Refid"] bind:@"value" toObject:arrayController withKeyPath:@"arrangedObjects.refid" options:nil];
 	[[tableView tableColumnWithIdentifier:"Subject"] bind:@"value" toObject:arrayController withKeyPath:@"arrangedObjects.subject.capitalizedString" options:nil]; 
 	[[tableView tableColumnWithIdentifier:"Date"] bind:@"value" toObject:arrayController withKeyPath:@"arrangedObjects.date" options:nil]; 
@@ -280,6 +323,18 @@
 		[self setHashBang];
 	}
 	[self tagModeClick:nil];
+}
+
+- (void)scrollViewDidScroll:(CPScrollView)s
+{
+	// Check if at page bottom, load more data
+	if([[scrollView verticalScroller] floatValue] === 1)
+	{
+		// Load the next page of data
+		if (searchParams.page) searchParams.page++;
+		else searchParams.page = 1;
+		[searchService post:queryPath withData:searchParams];
+	}
 }
 
 ////	Service delegate methods

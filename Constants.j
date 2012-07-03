@@ -3,6 +3,7 @@ serverUrl = debug ? "http://localhost:8080" : "data";
 tagsPath = "/tags";
 queryPath = "/query";
 itemPath = "/item";
+DEFAULT_DATE = "2010-02-28";
 
 // Popover cookie name
 c_name="CourageIsContagious";
